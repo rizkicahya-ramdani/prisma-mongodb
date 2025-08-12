@@ -1,50 +1,63 @@
-import { useState } from "react";
-import "./App.css"
+import { useState, useEffect } from "react";
+import axios from "axios";
+import "./App.css";
 
 interface User {
-	id: number;
+	id: string; // Mongo pakai string ObjectId
 	name: string;
 	email: string;
 }
 
 function App() {
-	const [users, setUsers] = useState<User[]>([
-		{ id: 1, name: "John Doe", email: "john@example.com" },
-		{ id: 2, name: "Jane Smith", email: "jane@example.com" }
-	]);
-
+	const [users, setUsers] = useState<User[]>([]);
 	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
-	const [editId, setEditId] = useState<number | null>(null);
+	const [editId, setEditId] = useState<string | null>(null);
 
-	// Tambah user baru
-	const handleAddUser = (e: React.FormEvent) => {
+	// Fetch data dari backend saat pertama load
+	useEffect(() => {
+		fetchUsers();
+	}, []);
+
+	const fetchUsers = async () => {
+		try {
+			const res = await axios.get<User[]>("http://localhost:5000/users");
+			setUsers(res.data);
+		} catch (error) {
+			console.error(error);
+		}
+	};
+
+	// Tambah atau Edit user
+	const handleAddUser = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!name || !email) return;
 
-		if (editId !== null) {
-			// Update user
-			setUsers(users.map(user =>
-				user.id === editId ? { ...user, name, email } : user
-			));
+		try {
+			if (editId) {
+				// Update
+				await axios.put(`http://localhost:5000/users/${editId}`, { name, email });
+			} else {
+				// Tambah
+				await axios.post("http://localhost:5000/users", { name, email });
+			}
+			fetchUsers();
+			setName("");
+			setEmail("");
 			setEditId(null);
-		} else {
-			// Tambah user baru
-			const newUser: User = {
-				id: users.length + 1,
-				name,
-				email
-			};
-			setUsers([...users, newUser]);
+		} catch (error) {
+			console.error(error);
 		}
-
-		setName("");
-		setEmail("");
 	};
 
 	// Hapus user
-	const handleDelete = (id: number) => {
-		setUsers(users.filter(user => user.id !== id));
+	const handleDelete = async (id: string) => {
+		try {
+			await axios.delete(`http://localhost:5000/users/${id}`);
+			fetchUsers();
+		} catch (error) {
+			console.error(error);
+		}
 	};
 
 	// Edit user
@@ -59,9 +72,12 @@ function App() {
 			<h1 className="text-3xl font-bold mb-4">User Management</h1>
 
 			{/* Form Tambah / Edit User */}
-			<form onSubmit={handleAddUser} className="mb-6 bg-white p-4 rounded-lg shadow-md">
+			<form
+				onSubmit={handleAddUser}
+				className="mb-6 bg-white p-4 rounded-lg shadow-md"
+			>
 				<h2 className="text-xl font-semibold mb-3">
-					{editId !== null ? "Edit User" : "Add New User"}
+					{editId ? "Edit User" : "Add New User"}
 				</h2>
 				<div className="flex gap-4 mb-3">
 					<input
@@ -78,8 +94,11 @@ function App() {
 						onChange={(e) => setEmail(e.target.value)}
 						className="border p-2 rounded w-1/3"
 					/>
-					<button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
-						{editId !== null ? "Update" : "Add"}
+					<button
+						type="submit"
+						className="bg-blue-500 text-white px-4 py-2 rounded"
+					>
+						{editId ? "Update" : "Add"}
 					</button>
 				</div>
 			</form>
@@ -95,7 +114,7 @@ function App() {
 				</tr>
 				</thead>
 				<tbody>
-				{users.map(user => (
+				{users.map((user) => (
 					<tr key={user.id} className="text-center">
 						<td className="py-2 px-4 border">{user.id}</td>
 						<td className="py-2 px-4 border">{user.name}</td>
